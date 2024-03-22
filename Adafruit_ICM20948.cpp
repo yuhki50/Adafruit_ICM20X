@@ -45,6 +45,77 @@ bool Adafruit_ICM20948::begin_I2C(uint8_t i2c_address, TwoWire *wire,
   return init_success;
 }
 
+/*!
+ *    @brief  Sets up the hardware and initializes hardware SPI
+ *    @param  cs_pin The arduino pin # connected to chip select
+ *    @param  theSPI The SPI object to be used for SPI connections.
+ *    @param  sensor_id An optional parameter to set the sensor ids to
+ * differentiate similar sensors The passed value is assigned to the
+ * accelerometer, the gyro gets +1, the magnetometer +2, and the temperature
+ * sensor +3.
+ *    @return True if initialization was successful, otherwise false.
+ */
+bool Adafruit_ICM20948::begin_SPI(uint8_t cs_pin, SPIClass *theSPI,
+                                int32_t sensor_id) {
+  i2c_dev = NULL;
+
+  if (spi_dev) {
+    delete spi_dev; // remove old interface
+  }
+
+  spi_dev = new Adafruit_SPIDevice(cs_pin,
+                                   1000000,               // frequency
+                                   SPI_BITORDER_MSBFIRST, // bit order
+                                   SPI_MODE0,             // data mode
+                                   theSPI);
+
+  if (!spi_dev->begin()) {
+    return false;
+  }
+  bool init_success = _init(sensor_id);
+  if (!setupMag()) {
+    Serial.println("failed to setup mag");
+    return false;
+  }
+
+  return init_success;
+}
+
+/*!
+ *    @brief  Sets up the hardware and initializes software SPI
+ *    @param  cs_pin The arduino pin # connected to chip select
+ *    @param  sck_pin The arduino pin # connected to SPI clock
+ *    @param  miso_pin The arduino pin # connected to SPI MISO
+ *    @param  mosi_pin The arduino pin # connected to SPI MOSI
+ *    @param  sensor_id An optional parameter to set the sensor ids to
+ * differentiate similar sensors The passed value is assigned to the
+ * accelerometer, the gyro gets +1, the magnetometer +2, and the temperature
+ * sensor +3.
+ *    @return True if initialization was successful, otherwise false.
+ */
+bool Adafruit_ICM20948::begin_SPI(int8_t cs_pin, int8_t sck_pin, int8_t miso_pin,
+                                int8_t mosi_pin, int32_t sensor_id) {
+  i2c_dev = NULL;
+
+  if (spi_dev) {
+    delete spi_dev; // remove old interface
+  }
+  spi_dev = new Adafruit_SPIDevice(cs_pin, sck_pin, miso_pin, mosi_pin,
+                                   1000000,               // frequency
+                                   SPI_BITORDER_MSBFIRST, // bit order
+                                   SPI_MODE0);            // data mode
+  if (!spi_dev->begin()) {
+    return false;
+  }
+  bool init_success = _init(sensor_id);
+  if (!setupMag()) {
+    Serial.println("failed to setup mag");
+    return false;
+  }
+
+  return init_success;
+}
+
 // A million thanks to the SparkFun folks for their library that I pillaged to
 // write this method! See their Arduino library here:
 // https://github.com/sparkfun/SparkFun_ICM-20948_ArduinoLibrary
@@ -89,22 +160,23 @@ bool Adafruit_ICM20948::setupMag(void) {
   // TODO: extract method
   // Set up Slave0 to proxy Mag readings
   _setBank(3);
+
   // set up slave0 to proxy reads to mag
-  buffer[0] = ICM20X_B3_I2C_SLV0_ADDR;
-  buffer[1] = 0x8C;
-  if (!i2c_dev->write(buffer, 2)) {
+  Adafruit_BusIO_Register i2c_slv0_addr = Adafruit_BusIO_Register(
+      i2c_dev, spi_dev, ADDRBIT8_HIGH_TOREAD, ICM20X_B3_I2C_SLV0_ADDR);
+  if (!i2c_slv0_addr.write(0x8C)) {
     return false;
   }
 
-  buffer[0] = ICM20X_B3_I2C_SLV0_REG;
-  buffer[1] = 0x10;
-  if (!i2c_dev->write(buffer, 2)) {
+  Adafruit_BusIO_Register i2c_slv0_reg = Adafruit_BusIO_Register(
+      i2c_dev, spi_dev, ADDRBIT8_HIGH_TOREAD, ICM20X_B3_I2C_SLV0_REG);
+  if (!i2c_slv0_reg.write(0x10)) {
     return false;
   }
 
-  buffer[0] = ICM20X_B3_I2C_SLV0_CTRL;
-  buffer[1] = 0x89; // enable, read 9 bytes
-  if (!i2c_dev->write(buffer, 2)) {
+  Adafruit_BusIO_Register i2c_slv0_ctrl = Adafruit_BusIO_Register(
+      i2c_dev, spi_dev, ADDRBIT8_HIGH_TOREAD, ICM20X_B3_I2C_SLV0_CTRL);
+  if (!i2c_slv0_ctrl.write(0x89)) { // enable, read 9 bytes
     return false;
   }
 

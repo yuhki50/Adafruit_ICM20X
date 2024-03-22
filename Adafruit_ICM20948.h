@@ -79,6 +79,10 @@ public:
   ~Adafruit_ICM20948(){};
   bool begin_I2C(uint8_t i2c_addr = ICM20948_I2CADDR_DEFAULT,
                  TwoWire *wire = &Wire, int32_t sensor_id = 0);
+  bool begin_SPI(uint8_t cs_pin, SPIClass *theSPI = &SPI,
+                 int32_t sensor_id = 0);
+  bool begin_SPI(int8_t cs_pin, int8_t sck_pin, int8_t miso_pin,
+                 int8_t mosi_pin, int32_t sensor_id = 0);
 
   icm20948_accel_range_t getAccelRange(void);
   void setAccelRange(icm20948_accel_range_t new_accel_range);
